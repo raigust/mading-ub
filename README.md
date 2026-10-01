@@ -18,7 +18,7 @@ npm run db:seed
 npm run dev
 ```
 
-Sebelum seed pertama, jalankan isi `apps/api/supabase/schema.sql` sekali di Supabase **SQL Editor**. API lokal dan production sama-sama memakai Supabase Data API; tidak ada koneksi PostgreSQL langsung atau Prisma. `SUPABASE_URL` adalah project root (`https://<project-ref>.supabase.co`), bukan URL yang diakhiri `/rest/v1` karena SDK menambahkan path Data API sendiri.
+Sebelum mengisi konten, jalankan isi `apps/api/supabase/schema.sql` sekali di Supabase **SQL Editor**. Untuk memasukkan 9 data contoh tanpa menyiapkan secret lokal, jalankan `apps/api/supabase/seed.sql` di SQL Editor. API lokal dan production sama-sama memakai Supabase Data API; tidak ada koneksi PostgreSQL langsung atau Prisma. `SUPABASE_URL` adalah project root (`https://<project-ref>.supabase.co`), bukan URL yang diakhiri `/rest/v1` karena SDK menambahkan path Data API sendiri.
 
 Buka `http://localhost:3000`. API tersedia di `http://localhost:4000/api`; pemeriksaan kesehatan ada di `/api/health`.
 
