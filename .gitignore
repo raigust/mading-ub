@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+.env*
+!.env.example
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+.DS_Store

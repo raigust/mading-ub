@@ -1,0 +1,17 @@
+{
+  "name": "papan-ub",
+  "private": true,
+  "workspaces": ["apps/web", "apps/api"],
+  "scripts": {
+    "dev": "concurrently -k -n API,WEB -c yellow,cyan \"npm run dev -w @papan-ub/api\" \"npm run dev -w @papan-ub/web\"",
+    "build": "npm run build -w @papan-ub/api && npm run build -w @papan-ub/web",
+    "db:generate": "npm run db:generate -w @papan-ub/api",
+    "db:push": "npm run db:push -w @papan-ub/api",
+    "db:migrate:dev": "npm run db:migrate:dev -w @papan-ub/api",
+    "db:migrate:deploy": "npm run db:migrate:deploy -w @papan-ub/api",
+    "db:seed": "npm run db:seed -w @papan-ub/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
