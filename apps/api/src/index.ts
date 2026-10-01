@@ -136,6 +136,7 @@ async function requireAdmin(request: Request, response: Response, next: NextFunc
 }
 
 function requireTrustedOrigin(request: Request, response: Response, next: NextFunction) {
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return next();
   const origin = request.get("origin");
   if ((origin && !allowedOrigins.includes(origin)) || (!origin && process.env.NODE_ENV === "production")) {
     return response.status(403).json({ error: "Asal permintaan tidak diizinkan." });
