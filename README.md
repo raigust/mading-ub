@@ -42,7 +42,7 @@ Rekomendasi untuk stack ini: frontend Next.js di Vercel, backend Express sebagai
 3. Push perubahan terbaru ke GitHub. Import repo ke Vercel sebagai project API dengan **Root Directory** `apps/api`, Framework preset **Other**, Build Command `npm run build:production`, dan Output Directory kosong. Entry Express `src/index.ts` mengekspor app untuk Vercel Function.
 4. Tambahkan pada project API: `SUPABASE_URL=https://qauqutgpecvwoxjkpjfo.supabase.co`, `SUPABASE_SECRET_KEY` (Secret key, atau legacy `service_role`), `WEB_ORIGIN=https://mading-ub.vercel.app`, `ADMIN_USERNAME=admin`, password bootstrap acak minimal 12 karakter, `ADMIN_SESSION_SECRET` acak minimal 32 karakter, `ADMIN_EMAIL`, `UPSTASH_REDIS_REST_URL`, dan `UPSTASH_REDIS_REST_TOKEN`. Template ada di `apps/api/production.env.example`; masukkan rahasia langsung di Vercel. Jangan gunakan publishable key sebagai backend secret.
 5. Setelah API project deploy, buka `<API-VERCEL-URL>/api/health`; harus menjawab `{"status":"ok","service":"papanub-api"}`. Catat URL project API.
-6. Pada project web Vercel yang sudah ada, set `API_ORIGIN` ke URL API (contoh `https://papanub-api.vercel.app`) dan `NEXT_PUBLIC_API_URL=/`. Biarkan `NEXT_PUBLIC_SUPABASE_URL` dan publishable key yang sudah ada. Rewrite Next.js meneruskan `/api/...` dari host frontend ke API sehingga cookie login tetap same-origin. Redeploy frontend setelah menyimpan environment variable.
+6. Pada project web Vercel yang sudah ada, set `API_ORIGIN` ke URL API (contoh `https://papanub-api.vercel.app`). Biarkan `NEXT_PUBLIC_SUPABASE_URL` dan publishable key yang sudah ada. Browser otomatis memakai `/api/...` pada host frontend; rewrite Next.js meneruskannya ke API sehingga cookie login tetap same-origin. `NEXT_PUBLIC_API_URL` tidak diperlukan pada production. Redeploy frontend setelah menyimpan environment variable.
 7. Seed konten opsional: isi `SUPABASE_URL` dan `SUPABASE_SECRET_KEY` pada terminal lokal, lalu jalankan `npm run db:seed`; atau masukkan SQL schema saja dan buat konten melalui admin. Coba login di `https://mading-ub.vercel.app/admin/login` dengan bootstrap username/password. Setelah berhasil, ganti password lewat Profil Admin dan hapus `ADMIN_PASSWORD` dari environment API lalu redeploy API.
 
 Supabase service/secret key melewati Row Level Security, sehingga key hanya berada di API Express; RLS aktif dan browser tidak diberi policy langsung. Semua query posts/admin berjalan dari Express dengan autentikasi sesi admin. Jangan taruh secret key di Git, `NEXT_PUBLIC_*`, browser, atau chat.
@@ -70,10 +70,10 @@ Frontend bisa dideploy lebih dulu dari repo ini dengan **Root Directory** `apps/
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `API_ORIGIN` setelah Express API dideploy, misalnya `https://papanub-api.vercel.app`
-- `NEXT_PUBLIC_API_URL=/` agar browser memanggil API melalui rewrite pada origin frontend yang sama
+- `API_ORIGIN` yang menunjuk ke project API Vercel
 
 Jika API belum dikonfigurasi, situs production tidak akan mencoba menghubungi `localhost`: beranda menampilkan data contoh yang tertanam di frontend. Login admin, dashboard, dan edit profil belum bisa digunakan sampai API Express tersedia. Supabase Auth SSR yang disiapkan di atas belum menggantikan login admin Express.
 
-Langkah deploy: push project ke GitHub, import repo ke Vercel, set Root Directory ke `apps/web`, masukkan dua environment variable Supabase, `API_ORIGIN`, serta `NEXT_PUBLIC_API_URL=/`, lalu deploy. Jangan menaruh database URL atau secret backend ke environment variable `NEXT_PUBLIC_*`.
+Langkah deploy: push project ke GitHub, import repo ke Vercel, set Root Directory ke `apps/web`, masukkan dua environment variable Supabase dan `API_ORIGIN`, lalu deploy. Jangan menaruh database URL atau secret backend ke environment variable `NEXT_PUBLIC_*`.
 
 Konten seed adalah contoh untuk demonstrasi. Pastikan detail, tanggal, dan persyaratan diverifikasi lewat sumber resmi penyelenggara sebelum dipublikasikan.
