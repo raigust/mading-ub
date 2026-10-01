@@ -203,12 +203,18 @@ function publicAdminProfile(user: AdminUserRow) {
 }
 
 function getLoginFailureMessage(error: unknown) {
-  const supabaseError = error as { code?: string; message?: string; status?: number };
+  const supabaseError = error as { code?: string; message?: string; status?: number; name?: string };
   const code = supabaseError?.code || "";
   const message = (supabaseError?.message || "").toLowerCase();
 
   if (code === "PGRST205" || code === "42P01" || message.includes("admin_users") && message.includes("schema cache")) {
     return "Tabel admin_users belum tersedia. Jalankan apps/api/supabase/schema.sql di Supabase SQL Editor.";
+  }
+  if (code === "PGRST204" || code === "42703") {
+    return "Kolom tabel Supabase belum sesuai. Jalankan ulang apps/api/supabase/schema.sql di SQL Editor.";
+  }
+  if (code === "23505") {
+    return "Username atau email bootstrap sudah terpakai. Periksa tabel admin_users atau ubah ADMIN_USERNAME/ADMIN_EMAIL di Vercel.";
   }
   if (code === "42501" || message.includes("permission denied")) {
     return "Supabase menolak akses tabel. Pastikan API memakai Secret key/service_role, bukan publishable key.";
@@ -216,7 +222,8 @@ function getLoginFailureMessage(error: unknown) {
   if (message.includes("invalid api key") || message.includes("invalid jwt") || supabaseError?.status === 401) {
     return "SUPABASE_SECRET_KEY tidak valid. Periksa Secret key/service_role pada environment project API Vercel.";
   }
-  return "Login gagal mengakses Supabase. Periksa log Function API di Vercel untuk detail error.";
+  const diagnosticCode = code || (supabaseError?.status ? `HTTP ${supabaseError.status}` : supabaseError?.name || "unknown");
+  return `Login gagal mengakses Supabase (diagnostic ${diagnosticCode}). Periksa log Function API di Vercel.`;
 }
 
 async function ensureBootstrapAdmin() {
