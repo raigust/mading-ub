@@ -21,7 +21,7 @@ const categories = ["Beasiswa", "Organisasi", "Acara", "Kompetisi", "Pengumuman"
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase: SupabaseClient | null = supabaseUrl && supabaseSecretKey
-  ? createClient(supabaseUrl.replace(/\/+$/, ""), supabaseSecretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  ? createClient(supabaseUrl.replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, ""), supabaseSecretKey, { auth: { persistSession: false, autoRefreshToken: false } })
   : null;
 
 type AdminUserRow = {
