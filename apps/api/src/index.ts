@@ -55,13 +55,6 @@ function toDatabasePost(post: PostInput) {
   return { ...fields, source_url: sourceUrl };
 }
 
-if (process.env.NODE_ENV === "production" && sessionSecret.length < 32) {
-  throw new Error("ADMIN_SESSION_SECRET must contain at least 32 characters in production.");
-}
-if (process.env.NODE_ENV === "production" && (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN)) {
-  throw new Error("UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required for production login rate limiting.");
-}
-
 type PostInput = {
   title: string;
   category: typeof categories[number];
@@ -187,7 +180,12 @@ const distributedLoginLimiter = process.env.UPSTASH_REDIS_REST_URL && process.en
   : null;
 
 async function enforceLoginLimit(request: Request, response: Response, next: NextFunction) {
-  if (!distributedLoginLimiter) return loginLimiter(request, response, next);
+  if (!distributedLoginLimiter) {
+    if (process.env.NODE_ENV === "production") {
+      return response.status(503).json({ error: "Login production belum dikonfigurasi: tambahkan URL dan token Upstash Redis." });
+    }
+    return loginLimiter(request, response, next);
+  }
   try {
     const result = await distributedLoginLimiter.limit(request.ip || "unknown");
     response.setHeader("X-RateLimit-Limit", result.limit);
@@ -230,7 +228,15 @@ async function ensureBootstrapAdmin() {
   return data as AdminUserRow;
 }
 
-app.post("/api/admin/login", requireTrustedOrigin, enforceLoginLimit, async (request, response) => {
+app.post("/api/admin/login", requireTrustedOrigin, (request, response, next) => {
+  if (process.env.NODE_ENV === "production" && sessionSecret.length < 32) {
+    return response.status(503).json({ error: "Login production belum dikonfigurasi: ADMIN_SESSION_SECRET harus minimal 32 karakter." });
+  }
+  if (!supabase) {
+    return response.status(503).json({ error: "Backend belum terhubung: tambahkan SUPABASE_URL dan SUPABASE_SECRET_KEY." });
+  }
+  return next();
+}, enforceLoginLimit, async (request, response) => {
   const username = typeof request.body?.username === "string" ? request.body.username.trim() : "";
   const password = typeof request.body?.password === "string" ? request.body.password : "";
   if (!username || !password || username.length > 120 || password.length > 256) {
