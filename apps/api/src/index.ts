@@ -202,6 +202,23 @@ function publicAdminProfile(user: AdminUserRow) {
   return { id: user.id, username: user.username, displayName: user.display_name, email: user.email };
 }
 
+function getLoginFailureMessage(error: unknown) {
+  const supabaseError = error as { code?: string; message?: string; status?: number };
+  const code = supabaseError?.code || "";
+  const message = (supabaseError?.message || "").toLowerCase();
+
+  if (code === "PGRST205" || code === "42P01" || message.includes("admin_users") && message.includes("schema cache")) {
+    return "Tabel admin_users belum tersedia. Jalankan apps/api/supabase/schema.sql di Supabase SQL Editor.";
+  }
+  if (code === "42501" || message.includes("permission denied")) {
+    return "Supabase menolak akses tabel. Pastikan API memakai Secret key/service_role, bukan publishable key.";
+  }
+  if (message.includes("invalid api key") || message.includes("invalid jwt") || supabaseError?.status === 401) {
+    return "SUPABASE_SECRET_KEY tidak valid. Periksa Secret key/service_role pada environment project API Vercel.";
+  }
+  return "Login gagal mengakses Supabase. Periksa log Function API di Vercel untuk detail error.";
+}
+
 async function ensureBootstrapAdmin() {
   const client = getSupabase();
   const { data: existingData, error: existingError } = await client.from("admin_users").select("*").limit(1).maybeSingle();
@@ -256,7 +273,7 @@ app.post("/api/admin/login", requireTrustedOrigin, (request, response, next) => 
     return response.json({ profile: publicAdminProfile(user), expiresIn: sessionTtlSeconds });
   } catch (error) {
     console.error("Admin login failed", error);
-    return response.status(503).json({ error: "Login tidak dapat diproses saat ini." });
+    return response.status(503).json({ error: getLoginFailureMessage(error) });
   }
 });
 
