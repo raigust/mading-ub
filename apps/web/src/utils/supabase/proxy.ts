@@ -1,16 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-function getSupabaseConfig() {
+export async function updateSession(request: NextRequest) {
+  let response = NextResponse.next({ request });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) throw new Error("Supabase public environment variables are missing.");
-  return { url, key };
-}
 
-export async function updateSession(request: NextRequest) {
-  const { url, key } = getSupabaseConfig();
-  let response = NextResponse.next({ request });
+  if (!url || !key) return response;
 
   const supabase = createServerClient(url, key, {
     cookies: {
@@ -26,6 +22,10 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getClaims();
+  try {
+    await supabase.auth.getClaims();
+  } catch {
+    return response;
+  }
   return response;
 }
