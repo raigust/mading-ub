@@ -7,6 +7,7 @@ import {
   ArrowDownUp,
   ArrowLeft,
   ArrowUpRight,
+  Bell,
   BookOpenText,
   CalendarDays,
   Check,
@@ -19,8 +20,6 @@ import {
   Filter,
   GraduationCap,
   LayoutDashboard,
-  LayoutGrid,
-  List,
   LogOut,
   Megaphone,
   MoreHorizontal,
@@ -89,7 +88,6 @@ export default function AdminDashboard() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua kategori");
   const [sortNewest, setSortNewest] = useState(true);
-  const [viewMode, setViewMode] = useState<"bento" | "table">("bento");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -192,25 +190,6 @@ export default function AdminDashboard() {
     router.replace("/admin/login");
   }
 
-  // Class generator untuk pola Bento Grid di Admin
-  const getBentoSpan = (index: number) => {
-    const pattern = index % 5;
-    switch (pattern) {
-      case 0:
-        return "col-span-12 lg:col-span-8 row-span-2";
-      case 1:
-        return "col-span-12 lg:col-span-4 row-span-2";
-      case 2:
-        return "col-span-12 lg:col-span-4 row-span-1";
-      case 3:
-        return "col-span-12 lg:col-span-4 row-span-1";
-      case 4:
-        return "col-span-12 lg:col-span-4 row-span-1";
-      default:
-        return "col-span-12 lg:col-span-4 row-span-1";
-    }
-  };
-
   return (
     <main className="admin-shell">
       <aside className="admin-sidebar">
@@ -228,145 +207,21 @@ export default function AdminDashboard() {
 
           {notice && <div className={`admin-notice notice-${notice.kind}`} role="status"><span>{notice.kind === "success" ? <Check size={17} /> : <CircleAlert size={17} />}{notice.text}</span><button aria-label="Tutup pesan" onClick={() => setNotice(null)}><X size={16} /></button></div>}
 
-          {/* BENTO STATS SECTION */}
-          <section className="admin-stats grid grid-cols-12 gap-4 mb-8" aria-label="Ringkasan konten">
-            <div className="admin-stat stat-total col-span-12 sm:col-span-6 lg:col-span-4 border-3 border-black bg-yellow-300 p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-              <span className="stat-icon mb-2 inline-block"><BookOpenText size={22} /></span>
-              <span className="stat-label block text-xs font-black uppercase tracking-wider">TOTAL INFORMASI</span>
-              <strong className="text-4xl font-black block my-1">{posts.length.toString().padStart(2, "0")}</strong>
-              <small className="font-bold text-xs">Konten aktif di papan</small>
-            </div>
-            {categoryItems.map(({ label, icon: Icon, tone }) => (
-              <div key={label} className={`admin-stat stat-${tone} col-span-6 sm:col-span-3 lg:col-span-2 border-3 border-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between`}>
-                <span className="stat-icon"><Icon size={20} /></span>
-                <div>
-                  <span className="stat-label block text-[10px] font-black uppercase tracking-wider text-black/70 mt-2">{label.toUpperCase()}</span>
-                  <strong className="text-2xl font-black block">{posts.filter((post) => post.category === label).length.toString().padStart(2, "0")}</strong>
-                </div>
-              </div>
-            ))}
+          <section className="admin-stats" aria-label="Ringkasan konten">
+            <div className="admin-stat stat-total"><span className="stat-icon"><BookOpenText size={19} /></span><span className="stat-label">TOTAL INFORMASI</span><strong>{posts.length.toString().padStart(2, "0")}</strong><small>Konten di papan</small></div>
+            {categoryItems.map(({ label, icon: Icon, tone }) => <div className={`admin-stat stat-${tone}`} key={label}><span className="stat-icon"><Icon size={18} /></span><span className="stat-label">{label.toUpperCase()}</span><strong>{posts.filter((post) => post.category === label).length.toString().padStart(2, "0")}</strong><small>{label === "Organisasi" ? "UKM & ormek" : label === "Acara" ? "Seminar & webinar" : "Informasi aktif"}</small></div>)}
           </section>
 
           <section className="content-manager" id="content">
-            <div className="manager-heading flex flex-wrap items-center justify-between gap-4 mb-4">
-              <div>
-                <div className="admin-kicker"><span className="heading-dash" /> PENGELOLAAN KONTEN</div>
-                <h2>Semua informasi <span>{posts.length}</span></h2>
-                <p>Kelola isi mading, tenggat, kategori, dan penayangan unggulan.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="view-toggle border-2 border-black bg-white flex p-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                  <button className={`p-1.5 ${viewMode === "bento" ? "bg-black text-white" : "text-black"}`} onClick={() => setViewMode("bento")} title="Bento Grid View"><LayoutGrid size={16} /></button>
-                  <button className={`p-1.5 ${viewMode === "table" ? "bg-black text-white" : "text-black"}`} onClick={() => setViewMode("table")} title="Table View"><List size={16} /></button>
-                </div>
-                <button className="manager-add" disabled={apiUrl === null} onClick={openCreate}><FilePlus2 size={16} /> Tambah konten</button>
-              </div>
+            <div className="manager-heading"><div><div className="admin-kicker"><span className="heading-dash" /> PENGELOLAAN KONTEN</div><h2>Semua informasi <span>{posts.length}</span></h2><p>Kelola isi mading, tenggat, kategori, dan penayangan unggulan.</p></div><button className="manager-add" disabled={apiUrl === null} onClick={openCreate}><FilePlus2 size={16} /> Tambah konten</button></div>
+            <div className="manager-toolbar"><label className="admin-search"><Search size={17} /><input placeholder="Cari judul, organisasi, atau isi..." value={query} onChange={(event) => setQuery(event.target.value)} /><kbd>/</kbd></label><label className="category-filter"><Filter size={16} /><select value={category} onChange={(event) => setCategory(event.target.value)}><option>Semua kategori</option>{categoryItems.map(({ label }) => <option key={label}>{label}</option>)}</select><ChevronDown size={14} /></label><button className="order-button" onClick={() => setSortNewest(!sortNewest)}><ArrowDownUp size={16} /> {sortNewest ? "Terbaru" : "Terlama"}</button></div>
+            <div className="admin-table-wrap">
+              <table className="admin-table"><thead><tr><th>INFORMASI</th><th>KATEGORI</th><th>TENGGAT</th><th>STATUS</th><th><span className="sr-only">Aksi</span><MoreHorizontal size={17} /></th></tr></thead><tbody>
+                {loading ? <tr><td className="table-state" colSpan={5}>Memuat data mading...</td></tr> : visiblePosts.map((post) => <tr key={post.id}><td><div className="table-title-cell"><div className="table-thumb" style={{ backgroundImage: `url('${post.image}')` }} /><div><strong>{post.title}</strong><small>{post.organization}<span>·</span> Diperbarui {displayDate(post.date)}</small></div></div></td><td><span className={`admin-category admin-${categoryItems.find((item) => item.label === post.category)?.tone || "lime"}`}>{post.category}</span></td><td><span className="deadline-cell"><Clock3 size={14} />{displayDate(post.deadline)}</span></td><td><span className={`publish-status ${post.featured ? "status-featured" : ""}`}><i />{post.featured ? "Unggulan" : "Tayang"}</span></td><td><div className="row-actions"><button title="Edit informasi" aria-label={`Edit ${post.title}`} onClick={() => openEdit(post)}><Edit3 size={16} /></button><button className="delete-action" title="Hapus informasi" aria-label={`Hapus ${post.title}`} onClick={() => void handleDelete(post)}><Trash2 size={16} /></button></div></td></tr>)}
+                {!loading && visiblePosts.length === 0 && <tr><td className="table-state" colSpan={5}>Tidak ada informasi yang cocok dengan pencarian ini.</td></tr>}
+              </tbody></table>
             </div>
-
-            <div className="manager-toolbar flex flex-wrap gap-3 mb-6">
-              <label className="admin-search flex-1"><Search size={17} /><input placeholder="Cari judul, organisasi, atau isi..." value={query} onChange={(event) => setQuery(event.target.value)} /><kbd>/</kbd></label>
-              <label className="category-filter"><Filter size={16} /><select value={category} onChange={(event) => setCategory(event.target.value)}><option>Semua kategori</option>{categoryItems.map(({ label }) => <option key={label}>{label}</option>)}</select><ChevronDown size={14} /></label>
-              <button className="order-button" onClick={() => setSortNewest(!sortNewest)}><ArrowDownUp size={16} /> {sortNewest ? "Terbaru" : "Terlama"}</button>
-            </div>
-
-            {/* BENTO GRID VIEW / TABLE VIEW TOGGLE */}
-            {viewMode === "bento" ? (
-              <div className="admin-bento-grid grid grid-cols-12 gap-5 auto-rows-[220px]">
-                {loading ? (
-                  <div className="col-span-12 p-12 text-center font-black border-3 border-black bg-white shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
-                    Memuat data mading...
-                  </div>
-                ) : (
-                  visiblePosts.map((post, index) => {
-                    const spanClass = getBentoSpan(index);
-                    const tone = categoryItems.find((item) => item.label === post.category)?.tone || "lime";
-                    return (
-                      <article key={post.id} className={`admin-bento-card ${spanClass} border-3 border-black bg-white shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between overflow-hidden relative group hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all`}>
-                        <div className="bento-card-header flex items-center justify-between p-3 border-b-2 border-black bg-stone-100">
-                          <span className={`admin-category admin-${tone} text-xs font-black border-2 border-black px-2 py-0.5 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}>
-                            {post.category}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <span className={`publish-status text-xs font-bold ${post.featured ? "status-featured" : ""}`}>
-                              {post.featured ? "★ Unggulan" : "Tayang"}
-                            </span>
-                            <button className="p-1 border-2 border-black bg-white hover:bg-yellow-300 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" title="Edit" onClick={() => openEdit(post)}>
-                              <Edit3 size={14} />
-                            </button>
-                            <button className="p-1 border-2 border-black bg-red-400 text-white hover:bg-red-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" title="Hapus" onClick={() => void handleDelete(post)}>
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="bento-card-body p-4 flex-1 flex flex-col justify-between">
-                          <div>
-                            <div className="text-[11px] font-black uppercase text-black/60 mb-1">{post.organization}</div>
-                            <h3 className="font-black text-base line-clamp-2 leading-snug">{post.title}</h3>
-                            <p className="text-xs text-black/80 mt-1 line-clamp-2 font-medium">{post.description}</p>
-                          </div>
-                          
-                          <div className="bento-card-footer pt-3 mt-2 border-t-2 border-black/10 flex items-center justify-between text-xs font-bold text-black/70">
-                            <span className="flex items-center gap-1"><Clock3 size={13} /> {displayDate(post.deadline)}</span>
-                            <span className="text-[10px] uppercase font-black tracking-wider text-black/50">Diperbarui {displayDate(post.date)}</span>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })
-                )}
-                {!loading && visiblePosts.length === 0 && (
-                  <div className="col-span-12 p-12 text-center font-black border-3 border-black bg-white shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
-                    Tidak ada informasi yang cocok dengan pencarian ini.
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="admin-table-wrap">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>INFORMASI</th>
-                      <th>KATEGORI</th>
-                      <th>TENGGAT</th>
-                      <th>STATUS</th>
-                      <th><span className="sr-only">Aksi</span><MoreHorizontal size={17} /></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr><td className="table-state" colSpan={5}>Memuat data mading...</td></tr>
-                    ) : (
-                      visiblePosts.map((post) => (
-                        <tr key={post.id}>
-                          <td>
-                            <div className="table-title-cell">
-                              <div className="table-thumb" style={{ backgroundImage: `url('${post.image}')` }} />
-                              <div>
-                                <strong>{post.title}</strong>
-                                <small>{post.organization}<span>·</span> Diperbarui {displayDate(post.date)}</small>
-                              </div>
-                            </div>
-                          </td>
-                          <td><span className={`admin-category admin-${categoryItems.find((item) => item.label === post.category)?.tone || "lime"}`}>{post.category}</span></td>
-                          <td><span className="deadline-cell"><Clock3 size={14} />{displayDate(post.deadline)}</span></td>
-                          <td><span className={`publish-status ${post.featured ? "status-featured" : ""}`}><i />{post.featured ? "Unggulan" : "Tayang"}</span></td>
-                          <td>
-                            <div className="row-actions">
-                              <button title="Edit informasi" aria-label={`Edit ${post.title}`} onClick={() => openEdit(post)}><Edit3 size={16} /></button>
-                              <button className="delete-action" title="Hapus informasi" aria-label={`Hapus ${post.title}`} onClick={() => void handleDelete(post)}><Trash2 size={16} /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                    {!loading && visiblePosts.length === 0 && <tr><td className="table-state" colSpan={5}>Tidak ada informasi yang cocok dengan pencarian ini.</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <div className="manager-foot mt-4"><span><span className="foot-status-dot" /> Database tersambung</span><span>Menampilkan {visiblePosts.length} dari {posts.length} konten <Sparkles size={14} /></span></div>
+            <div className="manager-foot"><span><span className="foot-status-dot" /> Database tersambung</span><span>Menampilkan {visiblePosts.length} dari {posts.length} konten <Sparkles size={14} /></span></div>
           </section>
           <footer className="admin-footer"><span>Jaga kabar kampus tetap akurat dan bermanfaat.</span><span>PAPANUB <b>·</b> SUPERADMIN</span></footer>
         </div>
