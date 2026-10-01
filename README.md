@@ -6,7 +6,7 @@ Papan informasi mahasiswa Universitas Brawijaya untuk beasiswa, organisasi/UKM/o
 
 Prasyarat: Node.js 20.9 atau lebih baru.
 
-Jika belum ada, salin `apps/api/.env.example` menjadi `apps/api/.env` terlebih dahulu. Di PowerShell:
+ Jika belum ada, salin `apps/api/.env.example` menjadi `apps/api/.env`, lalu isi `SUPABASE_URL` dan `SUPABASE_SECRET_KEY` dari Supabase **Project Settings → API Keys → Secret key** (atau legacy `service_role`). Jangan masukkan publishable key ke variabel ini dan jangan bagikan secret key. Di PowerShell:
 
 ```powershell
 Copy-Item apps/api/.env.example apps/api/.env
@@ -14,13 +14,11 @@ Copy-Item apps/api/.env.example apps/api/.env
 
 ```bash
 npm install
-npm run db:generate
-npm run db:push
 npm run db:seed
 npm run dev
 ```
 
-Development lokal memakai `apps/api/prisma/schema.local.prisma` dan SQLite (`apps/api/.env`). Schema default `apps/api/prisma/schema.prisma` khusus PostgreSQL production. `npm run db:generate`/`npm run db:push` di root memilih schema lokal; API dev juga generate client SQLite sebelum start.
+Sebelum seed pertama, jalankan isi `apps/api/supabase/schema.sql` sekali di Supabase **SQL Editor**. API lokal dan production sama-sama memakai Supabase Data API; tidak ada koneksi PostgreSQL langsung atau Prisma. `SUPABASE_URL` adalah project root (`https://<project-ref>.supabase.co`), bukan URL yang diakhiri `/rest/v1` karena SDK menambahkan path Data API sendiri.
 
 Buka `http://localhost:3000`. API tersedia di `http://localhost:4000/api`; pemeriksaan kesehatan ada di `/api/health`.
 
@@ -39,24 +37,24 @@ Kredensial di atas hanya untuk development lokal. Jangan deploy dengan password 
 
 Rekomendasi untuk stack ini: frontend Next.js di Vercel, backend Express sebagai project Vercel terpisah, dan database PostgreSQL di Supabase. Jangan gunakan SQLite untuk production/serverless karena filesystem function bukan penyimpanan persisten.
 
-1. Di Supabase buka **Connect**, salin Transaction pooler (`6543`) dan Session pooler (`5432`). Isi connection strings ke `apps/api/.env` secara lokal untuk inisialisasi database; jangan kirim password kepada saya. Untuk schema kosong jalankan `npm run db:generate -w @papan-ub/api` lalu `npm run db:push:production`. Seed contoh opsional: `npm run db:seed:production -w @papan-ub/api`.
+1. Di Supabase buka **SQL Editor**, salin dan jalankan seluruh isi `apps/api/supabase/schema.sql` satu kali untuk membuat tabel dengan RLS aktif. Data API memakai project URL dan key server, jadi transaction/session pooler maupun password database tidak diperlukan oleh API runtime.
 2. Buat Redis database di Upstash dan simpan REST URL/token.
 3. Push perubahan terbaru ke GitHub. Import repo ke Vercel sebagai project API dengan **Root Directory** `apps/api`, Framework preset **Other**, Build Command `npm run build:production`, dan Output Directory kosong. Entry Express `src/index.ts` mengekspor app untuk Vercel Function.
-4. Tambahkan pada project API: `DATABASE_URL`, `DIRECT_URL`, `WEB_ORIGIN=https://mading-ub.vercel.app`, `ADMIN_USERNAME=admin`, password bootstrap acak minimal 12 karakter, `ADMIN_SESSION_SECRET` acak minimal 32 karakter, `ADMIN_EMAIL`, `UPSTASH_REDIS_REST_URL`, dan `UPSTASH_REDIS_REST_TOKEN`. Template daftar variable non-secret ada di `apps/api/production.env.example`; isi rahasia langsung di Vercel.
+4. Tambahkan pada project API: `SUPABASE_URL=https://qauqutgpecvwoxjkpjfo.supabase.co`, `SUPABASE_SECRET_KEY` (Secret key, atau legacy `service_role`), `WEB_ORIGIN=https://mading-ub.vercel.app`, `ADMIN_USERNAME=admin`, password bootstrap acak minimal 12 karakter, `ADMIN_SESSION_SECRET` acak minimal 32 karakter, `ADMIN_EMAIL`, `UPSTASH_REDIS_REST_URL`, dan `UPSTASH_REDIS_REST_TOKEN`. Template ada di `apps/api/production.env.example`; masukkan rahasia langsung di Vercel. Jangan gunakan publishable key sebagai backend secret.
 5. Setelah API project deploy, buka `<API-VERCEL-URL>/api/health`; harus menjawab `{"status":"ok","service":"papanub-api"}`. Catat URL project API.
 6. Pada project web Vercel yang sudah ada, set `API_ORIGIN` ke URL API (contoh `https://papanub-api.vercel.app`) dan `NEXT_PUBLIC_API_URL=/`. Biarkan `NEXT_PUBLIC_SUPABASE_URL` dan publishable key yang sudah ada. Rewrite Next.js meneruskan `/api/...` dari host frontend ke API sehingga cookie login tetap same-origin. Redeploy frontend setelah menyimpan environment variable.
-7. Coba login di `https://mading-ub.vercel.app/admin/login` dengan bootstrap username/password. Setelah berhasil, ganti password lewat Profil Admin dan hapus `ADMIN_PASSWORD` dari environment API lalu redeploy API.
+7. Seed konten opsional: isi `SUPABASE_URL` dan `SUPABASE_SECRET_KEY` pada terminal lokal, lalu jalankan `npm run db:seed`; atau masukkan SQL schema saja dan buat konten melalui admin. Coba login di `https://mading-ub.vercel.app/admin/login` dengan bootstrap username/password. Setelah berhasil, ganti password lewat Profil Admin dan hapus `ADMIN_PASSWORD` dari environment API lalu redeploy API.
 
-Untuk dev, `npm run build` dan schema `schema.local.prisma` tetap memakai SQLite. Untuk API Vercel gunakan `npm run build:production` yang menghasilkan client PostgreSQL. Jangan jalankan schema SQLite lokal terhadap Supabase. Jangan taruh connection strings/password/token di Git, `NEXT_PUBLIC_*`, atau chat.
+Supabase service/secret key melewati Row Level Security, sehingga key hanya berada di API Express; RLS aktif dan browser tidak diberi policy langsung. Semua query posts/admin berjalan dari Express dengan autentikasi sesi admin. Jangan taruh secret key di Git, `NEXT_PUBLIC_*`, browser, atau chat.
 
 Catatan keamanan deploy: pada production, Express menolak start jika Upstash Redis belum dikonfigurasi; buat database Redis di Upstash dan isi `UPSTASH_REDIS_REST_URL` serta `UPSTASH_REDIS_REST_TOKEN` di project API Vercel. Limiter terdistribusi membatasi 5 login per IP tiap 15 menit di semua instance. Development lokal memakai limiter memory. Browser memanggil API melalui rewrite same-origin; `API_ORIGIN` adalah URL server-side dan tidak diekspos ke browser.
 
-Dokumentasi: [Vercel: Express](https://vercel.com/guides/using-express-with-vercel), [Vercel: Node.js runtime](https://vercel.com/docs/functions/runtimes/node-js), [Supabase: Prisma](https://supabase.com/docs/guides/database/prisma), [Supabase: koneksi PostgreSQL dan pooler](https://supabase.com/docs/guides/database/connecting-to-postgres).
+Dokumentasi: [Vercel: Express](https://vercel.com/guides/using-express-with-vercel), [Vercel: Node.js runtime](https://vercel.com/docs/functions/runtimes/node-js), [Supabase: Data API](https://supabase.com/docs/guides/api), [Supabase: API keys](https://supabase.com/docs/guides/getting-started/api-keys).
 
 ## Stack
 
 - `apps/web`: Next.js App Router, React, TypeScript, Tailwind CSS, dan Lucide.
-- `apps/api`: Express, TypeScript, Prisma; SQLite untuk development lokal dan PostgreSQL Supabase untuk production.
+- `apps/api`: Express, TypeScript, bcrypt, dan Supabase Data API melalui `@supabase/supabase-js`.
 - Root `npm run dev` menjalankan frontend dan API bersamaan.
 
 ## Supabase SSR Auth

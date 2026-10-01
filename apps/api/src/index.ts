@@ -1,16 +1,15 @@
 import "dotenv/config";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { compare, hash } from "bcryptjs";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import helmet from "helmet";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { PrismaClient } from "@prisma/client";
 
 const app = express();
-const prisma = new PrismaClient();
 const port = Number(process.env.PORT || 4000);
 const bootstrapUsername = process.env.ADMIN_USERNAME || (process.env.NODE_ENV === "production" ? "" : "admin");
 const bootstrapPassword = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === "production" ? "" : "admin123");
@@ -19,6 +18,42 @@ const adminCookie = "papanub_admin";
 const sessionTtlSeconds = 2 * 60 * 60;
 const allowedOrigins = (process.env.WEB_ORIGIN || "http://localhost:3000").split(",").map((origin) => origin.trim());
 const categories = ["Beasiswa", "Organisasi", "Acara", "Kompetisi", "Pengumuman"] as const;
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase: SupabaseClient | null = supabaseUrl && supabaseSecretKey
+  ? createClient(supabaseUrl.replace(/\/+$/, ""), supabaseSecretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  : null;
+
+type AdminUserRow = {
+  id: string;
+  username: string;
+  display_name: string;
+  email: string;
+  password_hash: string;
+  session_version: number;
+};
+
+type PostRow = Omit<PostInput, "sourceUrl"> & {
+  id: string;
+  source_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+function getSupabase() {
+  if (!supabase) throw new Error("Supabase backend credentials are missing. Set SUPABASE_URL and SUPABASE_SECRET_KEY.");
+  return supabase;
+}
+
+function toApiPost(row: PostRow) {
+  const { source_url, created_at, updated_at, ...post } = row;
+  return { ...post, sourceUrl: source_url, createdAt: created_at, updatedAt: updated_at };
+}
+
+function toDatabasePost(post: PostInput) {
+  const { sourceUrl, ...fields } = post;
+  return { ...fields, source_url: sourceUrl };
+}
 
 if (process.env.NODE_ENV === "production" && sessionSecret.length < 32) {
   throw new Error("ADMIN_SESSION_SECRET must contain at least 32 characters in production.");
@@ -96,8 +131,10 @@ async function requireAdmin(request: Request, response: Response, next: NextFunc
   const session = readSession(request);
   if (!session) return response.status(401).json({ error: "Sesi admin tidak valid atau sudah berakhir." });
   try {
-    const user = await prisma.adminUser.findUnique({ where: { id: session.id } });
-    if (!user || user.sessionVersion !== session.sessionVersion) return response.status(401).json({ error: "Sesi admin sudah dicabut. Silakan masuk kembali." });
+    const { data, error } = await getSupabase().from("admin_users").select("*").eq("id", session.id).maybeSingle();
+    if (error) throw error;
+    const user = data as AdminUserRow | null;
+    if (!user || user.session_version !== session.sessionVersion) return response.status(401).json({ error: "Sesi admin sudah dicabut. Silakan masuk kembali." });
     response.locals.adminUser = user;
     return next();
   } catch {
@@ -111,10 +148,6 @@ function requireTrustedOrigin(request: Request, response: Response, next: NextFu
     return response.status(403).json({ error: "Asal permintaan tidak diizinkan." });
   }
   return next();
-}
-
-function sendAdminSession(response: Response, user: { id: string; sessionVersion: number }) {
-  setSessionCookie(response, user);
 }
 
 function validatePost(input: unknown): PostInput | null {
@@ -167,26 +200,34 @@ async function enforceLoginLimit(request: Request, response: Response, next: Nex
   }
 }
 
-function publicAdminProfile(user: { id: string; username: string; displayName: string; email: string }) {
-  return { id: user.id, username: user.username, displayName: user.displayName, email: user.email };
+function publicAdminProfile(user: AdminUserRow) {
+  return { id: user.id, username: user.username, displayName: user.display_name, email: user.email };
 }
 
 async function ensureBootstrapAdmin() {
-  const existing = await prisma.adminUser.findFirst();
+  const client = getSupabase();
+  const { data: existingData, error: existingError } = await client.from("admin_users").select("*").limit(1).maybeSingle();
+  if (existingError) throw existingError;
+  const existing = existingData as AdminUserRow | null;
   if (existing) return existing;
   if (!bootstrapUsername || !bootstrapPassword) return null;
   if (bootstrapPassword.length < 12 && process.env.NODE_ENV === "production") {
     throw new Error("ADMIN_PASSWORD must be at least 12 characters for first-time production setup.");
   }
   const passwordHash = await hash(bootstrapPassword, 12);
-  return prisma.adminUser.create({
-    data: {
-      username: bootstrapUsername,
-      displayName: process.env.ADMIN_DISPLAY_NAME || "Superadmin PapanUB",
-      email: process.env.ADMIN_EMAIL || "admin@papanub.local",
-      passwordHash,
-    },
-  });
+  const { data, error } = await client.from("admin_users").insert({
+    username: bootstrapUsername,
+    display_name: process.env.ADMIN_DISPLAY_NAME || "Superadmin PapanUB",
+    email: process.env.ADMIN_EMAIL || "admin@papanub.local",
+    password_hash: passwordHash,
+  }).select("*").single();
+  if (error?.code === "23505") {
+    const { data: racedUser, error: racedError } = await client.from("admin_users").select("*").eq("username", bootstrapUsername).single();
+    if (racedError) throw racedError;
+    return racedUser as AdminUserRow;
+  }
+  if (error) throw error;
+  return data as AdminUserRow;
 }
 
 app.post("/api/admin/login", requireTrustedOrigin, enforceLoginLimit, async (request, response) => {
@@ -199,11 +240,13 @@ app.post("/api/admin/login", requireTrustedOrigin, enforceLoginLimit, async (req
   try {
     const firstAdmin = await ensureBootstrapAdmin();
     if (!firstAdmin) return response.status(503).json({ error: "Admin belum dikonfigurasi. Atur kredensial bootstrap di environment backend." });
-    const user = await prisma.adminUser.findUnique({ where: { username } });
-    const valid = await compare(password, user?.passwordHash || "$2b$12$invalid.invalid.invalid.invalid.invalid.invalid.invalid.invalid");
+    const { data: userData, error } = await getSupabase().from("admin_users").select("*").eq("username", username).maybeSingle();
+    if (error) throw error;
+    const user = userData as AdminUserRow | null;
+    const valid = await compare(password, user?.password_hash || "$2b$12$invalid.invalid.invalid.invalid.invalid.invalid.invalid.invalid");
     if (!user || !valid) return response.status(401).json({ error: "Username atau password tidak sesuai." });
 
-    setSessionCookie(response, user);
+    setSessionCookie(response, { id: user.id, sessionVersion: user.session_version });
     return response.json({ profile: publicAdminProfile(user), expiresIn: sessionTtlSeconds });
   } catch (error) {
     console.error("Admin login failed", error);
@@ -216,7 +259,7 @@ app.get("/api/admin/session", requireAdmin, (_request, response) => response.jso
 app.get("/api/admin/profile", requireAdmin, (_request, response) => response.json(publicAdminProfile(response.locals.adminUser)));
 
 app.put("/api/admin/profile", requireTrustedOrigin, requireAdmin, async (request, response) => {
-  const user = response.locals.adminUser as { id: string; passwordHash: string; sessionVersion: number };
+  const user = response.locals.adminUser as AdminUserRow;
   const { username, displayName, email, currentPassword, newPassword } = request.body || {};
   if ([username, displayName, email, currentPassword].some((value) => typeof value !== "string" || !value.trim())) {
     return response.status(400).json({ error: "Username, nama tampilan, email, dan password saat ini wajib diisi." });
@@ -229,23 +272,21 @@ app.put("/api/admin/profile", requireTrustedOrigin, requireAdmin, async (request
     return response.status(400).json({ error: "Password baru harus terdiri dari 12 sampai 256 karakter." });
   }
 
-  if (!await compare(currentPassword, user.passwordHash)) return response.status(401).json({ error: "Password saat ini tidak sesuai." });
+  if (!await compare(currentPassword, user.password_hash)) return response.status(401).json({ error: "Password saat ini tidak sesuai." });
   try {
-    const updated = await prisma.adminUser.update({
-      where: { id: user.id },
-      data: {
-        username: username.trim(),
-        displayName: displayName.trim(),
-        email: email.trim().toLowerCase(),
-        ...(newPassword ? { passwordHash: await hash(newPassword, 12) } : {}),
-        sessionVersion: { increment: 1 },
-      },
-    });
-    setSessionCookie(response, updated);
+    const { data, error } = await getSupabase().from("admin_users").update({
+      username: username.trim(),
+      display_name: displayName.trim(),
+      email: email.trim().toLowerCase(),
+      ...(newPassword ? { password_hash: await hash(newPassword, 12) } : {}),
+      session_version: user.session_version + 1,
+    }).eq("id", user.id).select("*").single();
+    if (error?.code === "23505") return response.status(409).json({ error: "Username atau email sudah digunakan." });
+    if (error) throw error;
+    const updated = data as AdminUserRow;
+    setSessionCookie(response, { id: updated.id, sessionVersion: updated.session_version });
     return response.json(publicAdminProfile(updated));
   } catch (error) {
-    const code = (error as { code?: string }).code;
-    if (code === "P2002") return response.status(409).json({ error: "Username atau email sudah digunakan." });
     console.error("Admin profile update failed", error);
     return response.status(500).json({ error: "Gagal memperbarui profil." });
   }
@@ -258,34 +299,43 @@ app.post("/api/admin/logout", requireTrustedOrigin, (_request, response) => {
 
 app.get("/api/posts", async (request, response) => {
   const { category, q } = request.query;
-  const posts = await prisma.post.findMany({
-    where: {
-      ...(typeof category === "string" && category !== "Semua info" ? { category } : {}),
-      ...(typeof q === "string" && q.trim() ? {
-        OR: [
-          { title: { contains: q.trim() } },
-          { organization: { contains: q.trim() } },
-          { description: { contains: q.trim() } },
-        ],
-      } : {}),
-    },
-    orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
-  });
-  response.json(posts);
+  try {
+    let query = getSupabase().from("posts").select("*");
+    if (typeof category === "string" && category !== "Semua info") query = query.eq("category", category);
+    if (typeof q === "string" && q.trim()) {
+      const safeQuery = q.trim().replace(/[%,.*()\\"']/g, " ").slice(0, 120);
+      query = query.or(`title.ilike.%${safeQuery}%,organization.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`);
+    }
+    const { data, error } = await query.order("featured", { ascending: false }).order("created_at", { ascending: false });
+    if (error) throw error;
+    return response.json((data || []).map((row) => toApiPost(row as PostRow)));
+  } catch (error) {
+    console.error("Public post list failed", error);
+    return response.status(503).json({ error: "Informasi mading belum tersedia." });
+  }
 });
 
 app.get("/api/posts/:id", async (request, response) => {
-  const post = await prisma.post.findUnique({ where: { id: request.params.id } });
-  if (!post) return response.status(404).json({ error: "Informasi tidak ditemukan" });
-  return response.json(post);
+  try {
+    const { data, error } = await getSupabase().from("posts").select("*").eq("id", request.params.id).maybeSingle();
+    if (error) throw error;
+    if (!data) return response.status(404).json({ error: "Informasi tidak ditemukan" });
+    return response.json(toApiPost(data as PostRow));
+  } catch (error) {
+    console.error("Public post lookup failed", error);
+    return response.status(503).json({ error: "Informasi mading belum tersedia." });
+  }
 });
 
 const adminPosts = express.Router();
 
 adminPosts.get("/", async (_request, response) => {
   try {
-    return response.json(await prisma.post.findMany({ orderBy: [{ featured: "desc" }, { createdAt: "desc" }] }));
-  } catch {
+    const { data, error } = await getSupabase().from("posts").select("*").order("featured", { ascending: false }).order("created_at", { ascending: false });
+    if (error) throw error;
+    return response.json((data || []).map((row) => toApiPost(row as PostRow)));
+  } catch (error) {
+    console.error("Admin post list failed", error);
     return response.status(500).json({ error: "Gagal memuat informasi." });
   }
 });
@@ -294,10 +344,13 @@ adminPosts.post("/", async (request, response) => {
   const post = validatePost(request.body);
   if (!post) return response.status(400).json({ error: "Lengkapi semua field wajib dan pilih kategori yang valid." });
   try {
-    return response.status(201).json(await prisma.post.create({ data: post }));
+    const { data, error } = await getSupabase().from("posts").insert(toDatabasePost(post)).select("*").single();
+    if (error?.code === "23505") return response.status(409).json({ error: "Judul informasi sudah digunakan." });
+    if (error) throw error;
+    return response.status(201).json(toApiPost(data as PostRow));
   } catch (error) {
-    const code = (error as { code?: string }).code;
-    return response.status(code === "P2002" ? 409 : 500).json({ error: code === "P2002" ? "Judul informasi sudah digunakan." : "Gagal membuat informasi." });
+    console.error("Admin post create failed", error);
+    return response.status(500).json({ error: "Gagal membuat informasi." });
   }
 });
 
@@ -305,20 +358,26 @@ adminPosts.put("/:id", async (request, response) => {
   const post = validatePost(request.body);
   if (!post) return response.status(400).json({ error: "Lengkapi semua field wajib dan pilih kategori yang valid." });
   try {
-    return response.json(await prisma.post.update({ where: { id: request.params.id }, data: post }));
+    const { data, error } = await getSupabase().from("posts").update(toDatabasePost(post)).eq("id", request.params.id).select("*").maybeSingle();
+    if (error?.code === "23505") return response.status(409).json({ error: "Judul informasi sudah digunakan." });
+    if (error) throw error;
+    if (!data) return response.status(404).json({ error: "Informasi tidak ditemukan." });
+    return response.json(toApiPost(data as PostRow));
   } catch (error) {
-    const code = (error as { code?: string }).code;
-    return response.status(code === "P2025" ? 404 : code === "P2002" ? 409 : 500).json({ error: code === "P2025" ? "Informasi tidak ditemukan." : code === "P2002" ? "Judul informasi sudah digunakan." : "Gagal memperbarui informasi." });
+    console.error("Admin post update failed", error);
+    return response.status(500).json({ error: "Gagal memperbarui informasi." });
   }
 });
 
 adminPosts.delete("/:id", async (request, response) => {
   try {
-    await prisma.post.delete({ where: { id: request.params.id } });
+    const { data, error } = await getSupabase().from("posts").delete().eq("id", request.params.id).select("id").maybeSingle();
+    if (error) throw error;
+    if (!data) return response.status(404).json({ error: "Informasi tidak ditemukan." });
     return response.status(204).end();
   } catch (error) {
-    const code = (error as { code?: string }).code;
-    return response.status(code === "P2025" ? 404 : 500).json({ error: code === "P2025" ? "Informasi tidak ditemukan." : "Gagal menghapus informasi." });
+    console.error("Admin post delete failed", error);
+    return response.status(500).json({ error: "Gagal menghapus informasi." });
   }
 });
 
