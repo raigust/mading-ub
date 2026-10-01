@@ -97,7 +97,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     let active = true;
     async function loadDashboard() {
-      if (!apiUrl) {
+      if (apiUrl === null) {
         setNotice({ kind: "error", text: "Backend API belum dideploy. Mading publik dapat dilihat, tetapi pengelolaan admin belum tersedia." });
         setLoading(false);
         return;
@@ -197,13 +197,13 @@ export default function AdminDashboard() {
         <div className="admin-campus"><div className="admin-seal">UB</div><div><strong>Universitas Brawijaya</strong><small>ADMIN CONSOLE · 2026</small></div></div>
         <div className="admin-nav-label">WORKSPACE</div>
         <nav className="admin-nav"><a className="admin-nav-active" href="/admin"><LayoutDashboard size={17} /> Ringkasan</a><a href="#content"><BookOpenText size={17} /> Semua informasi<span>{posts.length}</span></a><a href="/admin/profile"><UserRound size={17} /> Profil admin</a></nav>
-        <div className="admin-sidebar-bottom"><div className="secure-panel"><ShieldCheck size={18} /><div><strong>Akses superadmin</strong><span>Sesi privat · 8 jam</span></div><span className="secure-dot" /></div><button className="admin-logout" disabled={!apiUrl} onClick={handleLogout}><LogOut size={17} /> Keluar dari akun</button><a href="/" className="back-board"><ArrowLeft size={15} /> Kembali ke mading</a></div>
+        <div className="admin-sidebar-bottom"><div className="secure-panel"><ShieldCheck size={18} /><div><strong>Akses superadmin</strong><span>Sesi privat · 8 jam</span></div><span className="secure-dot" /></div><button className="admin-logout" disabled={apiUrl === null} onClick={handleLogout}><LogOut size={17} /> Keluar dari akun</button><a href="/" className="back-board"><ArrowLeft size={15} /> Kembali ke mading</a></div>
       </aside>
 
       <section className="admin-workspace">
         <header className="admin-topbar"><div className="breadcrumb">PAPANUB <span>/</span> <strong>CONTROL ROOM</strong></div><div className="admin-user"><span className="admin-avatar">{username.slice(0, 1).toUpperCase()}</span><span><strong>{username}</strong><small>Superadmin</small></span><ShieldCheck size={17} /></div></header>
         <div className="admin-content">
-          <div className="admin-welcome"><div><div className="admin-kicker"><span className="welcome-live" /> DASHBOARD PENGELOLA</div><h1>Selamat datang, <span>{username}.</span></h1><p>Satu tempat untuk mengatur semua kabar di papan informasi Brawijaya.</p></div><div className="admin-welcome-actions"><a className="preview-board" href="/" target="_blank" rel="noreferrer"><ExternalLink size={16} /> Lihat mading</a><button className="create-post-button" disabled={!apiUrl} onClick={openCreate}><FilePlus2 size={17} /> Buat informasi</button></div></div>
+          <div className="admin-welcome"><div><div className="admin-kicker"><span className="welcome-live" /> DASHBOARD PENGELOLA</div><h1>Selamat datang, <span>{username}.</span></h1><p>Satu tempat untuk mengatur semua kabar di papan informasi Brawijaya.</p></div><div className="admin-welcome-actions"><a className="preview-board" href="/" target="_blank" rel="noreferrer"><ExternalLink size={16} /> Lihat mading</a><button className="create-post-button" disabled={apiUrl === null} onClick={openCreate}><FilePlus2 size={17} /> Buat informasi</button></div></div>
 
           {notice && <div className={`admin-notice notice-${notice.kind}`} role="status"><span>{notice.kind === "success" ? <Check size={17} /> : <CircleAlert size={17} />}{notice.text}</span><button aria-label="Tutup pesan" onClick={() => setNotice(null)}><X size={16} /></button></div>}
 
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
           </section>
 
           <section className="content-manager" id="content">
-            <div className="manager-heading"><div><div className="admin-kicker"><span className="heading-dash" /> PENGELOLAAN KONTEN</div><h2>Semua informasi <span>{posts.length}</span></h2><p>Kelola isi mading, tenggat, kategori, dan penayangan unggulan.</p></div><button className="manager-add" disabled={!apiUrl} onClick={openCreate}><FilePlus2 size={16} /> Tambah konten</button></div>
+            <div className="manager-heading"><div><div className="admin-kicker"><span className="heading-dash" /> PENGELOLAAN KONTEN</div><h2>Semua informasi <span>{posts.length}</span></h2><p>Kelola isi mading, tenggat, kategori, dan penayangan unggulan.</p></div><button className="manager-add" disabled={apiUrl === null} onClick={openCreate}><FilePlus2 size={16} /> Tambah konten</button></div>
             <div className="manager-toolbar"><label className="admin-search"><Search size={17} /><input placeholder="Cari judul, organisasi, atau isi..." value={query} onChange={(event) => setQuery(event.target.value)} /><kbd>/</kbd></label><label className="category-filter"><Filter size={16} /><select value={category} onChange={(event) => setCategory(event.target.value)}><option>Semua kategori</option>{categoryItems.map(({ label }) => <option key={label}>{label}</option>)}</select><ChevronDown size={14} /></label><button className="order-button" onClick={() => setSortNewest(!sortNewest)}><ArrowDownUp size={16} /> {sortNewest ? "Terbaru" : "Terlama"}</button></div>
             <div className="admin-table-wrap">
               <table className="admin-table"><thead><tr><th>INFORMASI</th><th>KATEGORI</th><th>TENGGAT</th><th>STATUS</th><th><span className="sr-only">Aksi</span><MoreHorizontal size={17} /></th></tr></thead><tbody>

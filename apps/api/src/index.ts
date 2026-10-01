@@ -324,9 +324,7 @@ adminPosts.delete("/:id", async (request, response) => {
 
 app.use("/api/admin/posts", requireTrustedOrigin, requireAdmin, adminPosts);
 
-if (process.env.VERCEL) {
-  app.listen(port, () => undefined);
-} else {
+if (!process.env.VERCEL) {
   app.listen(port, () => console.log(`PapanUB API running at http://localhost:${port}`));
 }
 

@@ -20,7 +20,7 @@ export default function AdminLoginPage() {
     setError("");
     try {
       const apiUrl = getApiBaseUrl();
-      if (!apiUrl) throw new Error("Backend API belum dideploy. Login admin aktif setelah NEXT_PUBLIC_API_URL diatur.");
+      if (apiUrl === null) throw new Error("Backend API belum dideploy. Login admin aktif setelah NEXT_PUBLIC_API_URL diatur.");
       const response = await fetch(`${apiUrl}/api/admin/login`, {
         method: "POST",
         credentials: "include",

@@ -21,7 +21,7 @@ export default function AdminProfilePage() {
 
   useEffect(() => {
     let active = true;
-    if (!apiUrl) {
+    if (apiUrl === null) {
       setNotice({ kind: "error", text: "Backend API belum dideploy. Profil admin tersedia setelah NEXT_PUBLIC_API_URL diatur." });
       setLoading(false);
       return () => { active = false; };
@@ -44,7 +44,7 @@ export default function AdminProfilePage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setNotice(null);
-    if (!apiUrl) {
+    if (apiUrl === null) {
       setNotice({ kind: "error", text: "Backend API belum dikonfigurasi." });
       return;
     }
@@ -99,18 +99,18 @@ export default function AdminProfilePage() {
               <form className="profile-form" onSubmit={handleSubmit}>
                 <div className="profile-section-label"><UserRound size={16} /><span>IDENTITAS ADMIN</span></div>
                 <div className="profile-fields">
-                  <label>Nama tampilan<span className="profile-input"><UserRound size={16} /><input maxLength={120} value={profile.displayName} onChange={(event) => setProfile({ ...profile, displayName: event.target.value })} placeholder="Nama admin" required disabled={loading || !apiUrl} /></span></label>
-                  <label>Username<span className="profile-input"><AtSign size={16} /><input maxLength={120} value={profile.username} onChange={(event) => setProfile({ ...profile, username: event.target.value })} placeholder="username" required disabled={loading || !apiUrl} /></span></label>
-                  <label className="profile-field-wide">Email admin<span className="profile-input"><AtSign size={16} /><input type="email" maxLength={254} value={profile.email} onChange={(event) => setProfile({ ...profile, email: event.target.value })} placeholder="admin@kampus.ac.id" required disabled={loading || !apiUrl} /></span></label>
+                  <label>Nama tampilan<span className="profile-input"><UserRound size={16} /><input maxLength={120} value={profile.displayName} onChange={(event) => setProfile({ ...profile, displayName: event.target.value })} placeholder="Nama admin" required disabled={loading || apiUrl === null} /></span></label>
+                  <label>Username<span className="profile-input"><AtSign size={16} /><input maxLength={120} value={profile.username} onChange={(event) => setProfile({ ...profile, username: event.target.value })} placeholder="username" required disabled={loading || apiUrl === null} /></span></label>
+                  <label className="profile-field-wide">Email admin<span className="profile-input"><AtSign size={16} /><input type="email" maxLength={254} value={profile.email} onChange={(event) => setProfile({ ...profile, email: event.target.value })} placeholder="admin@kampus.ac.id" required disabled={loading || apiUrl === null} /></span></label>
                 </div>
                 <div className="profile-section-label password-section"><LockKeyhole size={16} /><span>GANTI PASSWORD</span><small>OPSIONAL</small></div>
                 <p className="password-guidance">Password baru minimal 12 karakter. Kosongkan jika tidak ingin menggantinya.</p>
                 <div className="profile-fields">
-                  <label>Password saat ini<span className="profile-input"><KeyRound size={16} /><input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Wajib untuk menyimpan profil" required disabled={!apiUrl} /></span></label>
-                  <label>Password baru<span className="profile-input"><KeyRound size={16} /><input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Minimal 12 karakter" disabled={!apiUrl} /></span></label>
-                  {newPassword && <label className="profile-field-wide">Ulangi password baru<span className="profile-input"><KeyRound size={16} /><input type="password" autoComplete="new-password" minLength={12} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Masukkan ulang password baru" required disabled={!apiUrl} /></span></label>}
+                  <label>Password saat ini<span className="profile-input"><KeyRound size={16} /><input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Wajib untuk menyimpan profil" required disabled={apiUrl === null} /></span></label>
+                  <label>Password baru<span className="profile-input"><KeyRound size={16} /><input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Minimal 12 karakter" disabled={apiUrl === null} /></span></label>
+                  {newPassword && <label className="profile-field-wide">Ulangi password baru<span className="profile-input"><KeyRound size={16} /><input type="password" autoComplete="new-password" minLength={12} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Masukkan ulang password baru" required disabled={apiUrl === null} /></span></label>}
                 </div>
-                <footer className="profile-form-actions"><span><ShieldCheck size={15} /> Verifikasi password diperlukan untuk menyimpan</span><button type="submit" className="save-editor" disabled={saving || loading || !apiUrl}><Save size={16} />{saving ? "Menyimpan..." : "Simpan profil"}<ArrowRight size={15} /></button></footer>
+                <footer className="profile-form-actions"><span><ShieldCheck size={15} /> Verifikasi password diperlukan untuk menyimpan</span><button type="submit" className="save-editor" disabled={saving || loading || apiUrl === null}><Save size={16} />{saving ? "Menyimpan..." : "Simpan profil"}<ArrowRight size={15} /></button></footer>
               </form>
             </section>
             <aside className="profile-security-note"><div className="security-note-icon"><ShieldCheck size={19} /></div><div className="admin-kicker">KEAMANAN AKUN</div><h3>Akses tetap<br />di tanganmu.</h3><p>Setiap perubahan diverifikasi memakai password aktif. Password baru disimpan sebagai hash dan sesi admin lain akan otomatis kedaluwarsa.</p><div className="security-note-rule" /><span><BadgeCheck size={15} /> Password di-hash dengan bcrypt</span><span><BadgeCheck size={15} /> Sesi aktif diperbarui dengan aman</span><span><BadgeCheck size={15} /> Sesi perangkat lain dicabut</span></aside>

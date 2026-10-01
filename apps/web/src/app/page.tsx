@@ -112,7 +112,7 @@ export default function Home() {
 
   useEffect(() => {
     const apiUrl = getApiBaseUrl();
-    if (!apiUrl) return;
+    if (apiUrl === null) return;
     fetch(`${apiUrl}/api/posts`)
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: Post[]) => { if (data.length) setPosts(data); })
