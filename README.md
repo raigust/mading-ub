@@ -53,4 +53,22 @@ Dokumentasi: [Vercel: Express](https://vercel.com/guides/using-express-with-verc
 - `apps/api`: Express, TypeScript, Prisma, dan SQLite.
 - Root `npm run dev` menjalankan frontend dan API bersamaan.
 
+## Supabase SSR Auth
+
+Frontend memiliki Supabase browser/server clients di `apps/web/src/utils/supabase` dan `apps/web/src/proxy.ts` memperbarui sesi Supabase Auth memakai `auth.getClaims()`. Variabel lokal ada di `apps/web/.env.local` (tidak masuk Git); gunakan `apps/web/.env.example` sebagai template untuk environment lain.
+
+Integrasi ini hanya menyiapkan client dan refresh sesi Supabase Auth. Halaman tidak membaca tabel `todos` dari contoh tutorial karena tabel tersebut belum ada. Login superadmin dan CRUD mading tetap memakai sesi Express tersendiri sampai alur auth sengaja dimigrasikan; membuat user Supabase Auth tidak otomatis memberi hak superadmin.
+
+## Deploy frontend ke Vercel
+
+Frontend bisa dideploy lebih dulu dari repo ini dengan **Root Directory** `apps/web`. Vercel akan mendeteksi Next.js dan menjalankan build otomatis. Tambahkan environment variables berikut pada Vercel project frontend:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `NEXT_PUBLIC_API_URL` setelah Express API dideploy, misalnya `https://papanub-api.vercel.app`
+
+Jika `NEXT_PUBLIC_API_URL` belum tersedia, situs production tidak akan mencoba menghubungi `localhost`: beranda menampilkan data contoh yang tertanam di frontend. Login admin, dashboard, dan edit profil belum bisa digunakan sampai API Express tersedia dan URL-nya dipasang. Supabase Auth SSR yang disiapkan di atas belum menggantikan login admin Express.
+
+Langkah deploy: push project ke GitHub, import repo ke Vercel, set Root Directory ke `apps/web`, masukkan dua environment variable Supabase di atas, lalu deploy. Setelah backend Express tersedia, tambahkan `NEXT_PUBLIC_API_URL` dan redeploy frontend. Jangan menaruh database URL atau secret backend ke environment variable `NEXT_PUBLIC_*`.
+
 Konten seed adalah contoh untuk demonstrasi. Pastikan detail, tanggal, dan persyaratan diverifikasi lewat sumber resmi penyelenggara sebelum dipublikasikan.

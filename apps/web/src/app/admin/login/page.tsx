@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Eye, EyeOff, KeyRound, ShieldCheck } from "lucide-react";
+import { getApiBaseUrl } from "@/utils/api";
 import "../admin.css";
 
 export default function AdminLoginPage() {
@@ -18,7 +19,8 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError("");
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const apiUrl = getApiBaseUrl();
+      if (!apiUrl) throw new Error("Backend API belum dideploy. Login admin aktif setelah NEXT_PUBLIC_API_URL diatur.");
       const response = await fetch(`${apiUrl}/api/admin/login`, {
         method: "POST",
         credentials: "include",

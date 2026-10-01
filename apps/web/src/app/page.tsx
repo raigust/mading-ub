@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getApiBaseUrl } from "@/utils/api";
 import {
   ArrowDownWideNarrow,
   ArrowUpRight,
@@ -110,7 +111,9 @@ export default function Home() {
   const [sortNewest, setSortNewest] = useState(true);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/posts`)
+    const apiUrl = getApiBaseUrl();
+    if (!apiUrl) return;
+    fetch(`${apiUrl}/api/posts`)
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: Post[]) => { if (data.length) setPosts(data); })
       .catch(() => undefined);
